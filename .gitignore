@@ -1,0 +1,15 @@
+.DS_Store
+out
+target
+builds
+junit-report
+.classpath
+.settings
+.setting
+.project
+.idea
+*.iml
+manifest.json
+/target/
+/soa_tools/
+dependency-reduced-pom.xml
