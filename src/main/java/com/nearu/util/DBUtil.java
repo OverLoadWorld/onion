@@ -1,5 +1,6 @@
 package com.nearu.util;
 
+import org.apache.commons.dbcp2.BasicDataSource;
 import org.apache.commons.dbutils.QueryRunner;
 import org.apache.commons.dbutils.handlers.BeanHandler;
 import org.apache.commons.dbutils.handlers.BeanListHandler;
@@ -21,7 +22,7 @@ import java.util.Properties;
  */
 public class DBUtil {
 
-    private static final ThreadLocal<Connection> CONNECTION_THREAD_LOCAL = new ThreadLocal<Connection>();
+    private static final ThreadLocal<Connection> CONNECTION_THREAD_LOCAL;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DBUtil.class);
     private static final String DRIVER;
@@ -29,15 +30,25 @@ public class DBUtil {
     private static final String USERNAME;
     private static final String PASSWORD;
 
-    private static final QueryRunner QUERY_RUNNER = new QueryRunner();
+    private static final QueryRunner QUERY_RUNNER;
+
+    private static final BasicDataSource BASIC_DATA_SOURCE;
 
     static {
+        CONNECTION_THREAD_LOCAL = new ThreadLocal<Connection>();
+        QUERY_RUNNER = new QueryRunner();
+
         Properties conf = PropsUtil.loadProps("db.properties");
         DRIVER = conf.getProperty("jdbc.driver");
         URL = conf.getProperty("jdbc.url");
         USERNAME = conf.getProperty("jdbc.username");
         PASSWORD = conf.getProperty("jdbc.password");
 
+        BASIC_DATA_SOURCE = new BasicDataSource();
+        BASIC_DATA_SOURCE.setDriverClassName(DRIVER);
+        BASIC_DATA_SOURCE.setUrl(URL);
+        BASIC_DATA_SOURCE.setUsername(USERNAME);
+        BASIC_DATA_SOURCE.setPassword(PASSWORD);
         try {
             Class.forName(DRIVER);
         } catch (ClassNotFoundException e) {
@@ -50,7 +61,7 @@ public class DBUtil {
         Connection conn = CONNECTION_THREAD_LOCAL.get();
         if(conn == null){
             try {
-                conn = DriverManager.getConnection(URL, USERNAME, PASSWORD);
+                conn = BASIC_DATA_SOURCE.getConnection();
             } catch (SQLException e) {
                 e.printStackTrace();
                 LOGGER.error("get Connection failed", e);
@@ -62,21 +73,6 @@ public class DBUtil {
         return conn;
     }
 
-    public static void closeConnection(){
-        Connection connection = CONNECTION_THREAD_LOCAL.get();
-        if(connection != null){
-            try {
-                connection.close();
-            } catch (SQLException e) {
-                e.printStackTrace();
-                LOGGER.error("close connection fail", e);
-                throw new RuntimeException();
-            } finally {
-                CONNECTION_THREAD_LOCAL.remove();
-            }
-        }
-    }
-
     public static <T> List<T> queryEntityList(Class<T> entityClass, String sql, Object... params){
         List<T> entityList = null;
         try {
@@ -86,8 +82,6 @@ public class DBUtil {
             e.printStackTrace();
             LOGGER.error("query Entity List failed", e);
             throw new RuntimeException();
-        } finally {
-            closeConnection();
         }
         return entityList;
     }
@@ -101,8 +95,6 @@ public class DBUtil {
             e.printStackTrace();
             LOGGER.error("query Entity failed", e);
             throw new RuntimeException();
-        } finally {
-            closeConnection();
         }
         return entity;
     }
